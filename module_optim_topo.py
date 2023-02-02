@@ -14,6 +14,7 @@ from copy import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
+mu0 = 4e-7*np.pi
 
 # Maillage disque laminé
 
@@ -37,11 +38,10 @@ def meshLamDisk(Nbar, h = 1):
     return Mesh(m)
 
 
-def solvePrimal_linear(mur,beta,mesh):
+def solvePrimal_linear(mur,ni,mesh):
     # le champ 1 est vertical, le champ 2 est horizontal
     # on impose les forces magnétomotrices
     
-    nu0 = 4e-7*np.pi
     nu = mesh.MaterialCF({ "iron" : 1/(mu0*mur) }, default=1/mu0)
     
     fespace_H1 = H1(mesh, order=1)
@@ -53,13 +53,13 @@ def solvePrimal_linear(mur,beta,mesh):
     
     # imposition des circulations sur le côté gauche et droit
     l1 = LinearForm(fespace_H1)
-    l1 += -psi*beta*sqrt(1-y*y)*ds(definedon=mesh.Boundaries("right_bot|right_up"))
-    l1 += psi*beta*sqrt(1-y*y)*ds(definedon=mesh.Boundaries("left_bot|left_up"))
+    l1 += -psi*ni*sqrt(1-y*y)*ds(definedon=mesh.Boundaries("right_bot|right_up"))
+    l1 += psi*ni*sqrt(1-y*y)*ds(definedon=mesh.Boundaries("left_bot|left_up"))
     
     # imposition des circulations sur le haut et le bas
     l2 = LinearForm(fespace_H1)
-    l2 += -psi* beta * sqrt(1-x*x)* ds(definedon=mesh.Boundaries("right_bot|left_bot"))
-    l2 += psi*beta* sqrt(1-x*x)*ds(definedon=mesh.Boundaries("right_up|left_up"))
+    l2 += -psi* ni * sqrt(1-x*x)* ds(definedon=mesh.Boundaries("right_bot|left_bot"))
+    l2 += psi*ni* sqrt(1-x*x)*ds(definedon=mesh.Boundaries("right_up|left_up"))
 
     K.Assemble()
     Kdec = K.mat.Inverse(inverse="sparsecholesky")
@@ -71,24 +71,26 @@ def solvePrimal_linear(mur,beta,mesh):
     
     return a1, a2
 
+def mu_defaut(mur,mesh):
+    return mesh.MaterialCF({ "iron" : mur*mu0 }, default=mu0)
+
 def solveDual_linear(mur,beta,mesh):
     # le champ 1 est vertical, le champ 2 est horizontal
     # on impose les flux
     
-    mu0 = 4e-7*np.pi
-    mu = mesh.MaterialCF({ "iron" : mur*mu0 }, default=mu0)
+    mu = mu_defaut(mur,mesh)
     
     fespace_H1 = H1(mesh, order=1)
     fespace_H1.FreeDofs()[0] = False
     phi = fespace_H1.TrialFunction()
     psi = fespace_H1.TestFunction()
     K = BilinearForm(fespace_H1, symmetric=True)
-    K +=  grad(psi)* nu *grad(phi) *dx
+    K +=  grad(psi)* mu *grad(phi) *dx
     
     # imposition du flux sur le côté haut et bas
     l1 = LinearForm(fespace_H1)
-    l1 += -psi* beta * sqrt(1-x*x)* ds(definedon=mesh.Boundaries("right_bot|left_bot"))
-    l1 += psi*beta* sqrt(1-x*x)*ds(definedon=mesh.Boundaries("right_up|left_up"))
+    l1 += psi* beta * sqrt(1-x*x)* ds(definedon=mesh.Boundaries("right_bot|left_bot"))
+    l1 += -psi*beta* sqrt(1-x*x)*ds(definedon=mesh.Boundaries("right_up|left_up"))
     
     
     # imposition du flux sur le côté gauche et droit
@@ -105,3 +107,10 @@ def solveDual_linear(mur,beta,mesh):
     phi2.vec.data =     Kdec * l2.Assemble().vec
     
     return phi1, phi2
+
+
+def a2b(a):
+    return CoefficientFunction((grad(a)[1],-grad(a)[0]))
+
+def DrawVecField(vec,mesh):
+    Draw(vec, mesh, vectors = { "grid_size":20})
