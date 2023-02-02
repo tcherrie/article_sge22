@@ -114,3 +114,6 @@ def a2b(a):
 
 def DrawVecField(vec,mesh):
     Draw(vec, mesh, vectors = { "grid_size":20})
+
+def compliance(phi,mesh,coeff):
+    return Integrate(grad(phi) * coeff * grad(phi), mesh)/2
