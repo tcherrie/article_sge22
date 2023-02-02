@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 # Maillage disque laminé
 
-def meshLamDisk(Nbar, h = 1/Nbar):
+def meshLamDisk(Nbar, h = 1):
     geo = CSG2d()
     R=1
     x = R*2*(np.append(np.insert(np.arange(0.5,Nbar+0.5),0,0),Nbar)/Nbar-0.5)
